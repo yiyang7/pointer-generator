@@ -1,0 +1,6 @@
+_Store
+.idea/
+__pycache__
+.texpadtmp/
+data/
+log/

@@ -244,9 +244,9 @@ class Batcher(object):
       self._bucketing_cache_size = 1 # only load one batch's worth of examples before bucketing; this essentially means no bucketing
       self._finished_reading = False # this will tell us when we're finished reading the dataset
     else:
-      self._num_example_q_threads = 16 # num threads to fill example queue
-      self._num_batch_q_threads = 4  # num threads to fill batch queue
-      self._bucketing_cache_size = 100 # how many batches-worth of examples to load into cache before bucketing
+      self._num_example_q_threads = 1 #16 # num threads to fill example queue
+      self._num_batch_q_threads = 1 #4  # num threads to fill batch queue
+      self._bucketing_cache_size = 1 #100 # how many batches-worth of examples to load into cache before bucketing
 
     # Start the threads that load the queues
     self._example_q_threads = []
@@ -275,6 +275,7 @@ class Batcher(object):
     Returns:
       batch: a Batch object, or None if we're in single_pass mode and we've exhausted the dataset.
     """
+    print "--- next_batch"
     # If the batch queue is empty, print a warning
     if self._batch_queue.qsize() == 0:
       tf.logging.warning('Bucket input queue is empty when calling next_batch. Bucket queue size: %i, Input queue size: %i', self._batch_queue.qsize(), self._example_queue.qsize())
@@ -312,6 +313,7 @@ class Batcher(object):
 
     In decode mode, makes batches that each contain a single example repeated.
     """
+    print "--- fill_batch_queue"
     while True:
       if self._hps.mode != 'decode':
         # Get bucketing_cache_size-many batches of Examples into a list, then sort
@@ -319,6 +321,8 @@ class Batcher(object):
         for _ in xrange(self._hps.batch_size.value * self._bucketing_cache_size):
           inputs.append(self._example_queue.get())
         inputs = sorted(inputs, key=lambda inp: inp.enc_len) # sort by length of encoder sequence
+        
+        print "inputs: ", inputs
 
         # Group the sorted Examples into batches, optionally shuffle the batches, and place in the batch queue.
         batches = []
@@ -328,7 +332,8 @@ class Batcher(object):
           shuffle(batches)
         for b in batches:  # each b is a list of Example objects
           self._batch_queue.put(Batch(b, self._hps, self._vocab))
-
+        print "batches: ", batches
+        
       else: # beam search decode mode
         ex = self._example_queue.get()
         b = [ex for _ in xrange(self._hps.batch_size.value)]

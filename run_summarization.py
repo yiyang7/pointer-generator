@@ -47,8 +47,8 @@ tf.app.flags.DEFINE_string('exp_name', '', 'Name for experiment. Logs will be sa
 tf.app.flags.DEFINE_integer('hidden_dim', 256, 'dimension of RNN hidden states')
 tf.app.flags.DEFINE_integer('emb_dim', 128, 'dimension of word embeddings')
 tf.app.flags.DEFINE_integer('batch_size', 16, 'minibatch size')
-tf.app.flags.DEFINE_integer('max_enc_steps', 400, 'max timesteps of encoder (max source text tokens)')
-tf.app.flags.DEFINE_integer('max_dec_steps', 100, 'max timesteps of decoder (max summary tokens)')
+tf.app.flags.DEFINE_integer('max_enc_steps', 200, 'max timesteps of encoder (max source text tokens)')
+tf.app.flags.DEFINE_integer('max_dec_steps', 2, 'max timesteps of decoder (max summary tokens)')
 tf.app.flags.DEFINE_integer('beam_size', 4, 'beam size for beam search decoding.')
 tf.app.flags.DEFINE_integer('min_dec_steps', 35, 'Minimum sequence length of generated summary. Applies only for beam search decoding mode')
 tf.app.flags.DEFINE_integer('vocab_size', 50000, 'Size of vocabulary. These will be read from the vocabulary file in order. If the vocabulary file contains fewer words than this number, or if this number is set to 0, will take all words in the vocabulary file.')
@@ -221,19 +221,23 @@ def run_training(model, batcher, sess_context_manager, sv, summary_writer):
 
 def run_eval(model, batcher, vocab):
   """Repeatedly runs eval iterations, logging to screen and writing summaries. Saves the model with the best loss seen so far."""
+  print "run eval"
   model.build_graph() # build the graph
+  print "get saver"
   saver = tf.train.Saver(max_to_keep=3) # we will keep 3 best checkpoints at a time
+  print "create session"
   sess = tf.Session(config=util.get_config())
   eval_dir = os.path.join(FLAGS.log_root, "eval") # make a subdir of the root dir for eval data
   bestmodel_save_path = os.path.join(eval_dir, 'bestmodel') # this is where checkpoints of best models are saved
   summary_writer = tf.summary.FileWriter(eval_dir)
   running_avg_loss = 0 # the eval job keeps a smoother, running average loss to tell it when to implement early stopping
   best_loss = None  # will hold the best loss achieved so far
-
+  print("start while")
   while True:
     _ = util.load_ckpt(saver, sess) # load a new checkpoint
+    print "load new checkpoint"
     batch = batcher.next_batch() # get the next batch
-
+    print "batch: ", batch
     # run eval on the batch
     t0=time.time()
     results = model.run_eval_step(sess, batch)
@@ -304,15 +308,18 @@ def main(unused_argv):
 
   # Create a batcher object that will create minibatches of data
   batcher = Batcher(FLAGS.data_path, vocab, hps, single_pass=FLAGS.single_pass)
-
+  print "batcher: ", batcher
   tf.set_random_seed(111) # a seed value for randomness
+  exit()
 
   if hps.mode.value == 'train':
     print "creating model..."
     model = SummarizationModel(hps, vocab)
     setup_training(model, batcher)
   elif hps.mode.value == 'eval':
+    print "---eval"
     model = SummarizationModel(hps, vocab)
+    print "get model"
     run_eval(model, batcher, vocab)
   elif hps.mode.value == 'decode':
     decode_model_hps = hps  # This will be the hyperparameters for the decoder model
